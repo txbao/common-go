@@ -1,0 +1,570 @@
+package weixin
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"github.com/gin-gonic/gin"
+	"github.com/zhnxin/csvreader"
+	"pay-api/databases"
+	"pay-api/models/entity/payment"
+	"pay-api/models/gormt"
+	"pay-api/services/notify_services"
+	"pay-api/services/rabbitmq/coupon_queue"
+	"pay-api/utils"
+	"pay-api/utils/logs"
+	"pay-api/validators"
+)
+
+const (
+	//可用SENDED
+	STATUS_SENDED = 0
+	//已实扣USED
+	STATUS_USED = 1
+	//已过期EXPIRED
+	STATUS_EXPIRED = 2
+)
+
+//发券相关
+//txbao
+
+//公共发放代金券
+func coupons(ctx *gin.Context, formStruct payment.WeixinReqStruct, sysTradeNo string, providerModel *gormt.GbPayProvider) (error, map[string]interface{}) {
+	openid := formStruct.BizContent.Openid
+	stockId := formStruct.BizContent.StockId
+
+	//数据验证
+	fromStruct := validators.CouponSendForm{
+		StockId:    stockId,
+		Openid:     openid,
+		OutTradeNo: formStruct.OutTradeNo,
+	}
+
+	if validators.Valid(ctx, fromStruct) == false {
+		return errors.New("验证失败"), nil
+	}
+
+	urlApi := "https://api.mch.weixin.qq.com/v3/marketing/favor/users/" + openid + "/coupons"
+
+	reqMap := make(map[string]interface{})
+	reqMap["appid"] = providerModel.AppID
+	//reqMap["openid"] = openid
+	reqMap["stock_id"] = stockId
+	reqMap["out_request_no"] = formStruct.OutTradeNo
+	reqMap["stock_creator_mchid"] = providerModel.MchID
+	reqJson := utils.Map2Json(reqMap)
+
+	resJsons := V3Request(providerModel.MchID, urlApi, "POST", string(reqJson))
+	logs.Info("发券couponSend:reqJson:", reqJson, "resJsons", resJsons)
+
+	//发券异步回调
+	go coupon_queue.SrvCouponNotifyPublishMQ.PushCouponNotify(sysTradeNo,1)
+
+	resMap := utils.Json2map(resJsons)
+	couponId := utils.MapValue(resMap, "coupon_id")
+	if couponId != "" {
+		resMap["code"] = ""
+		resMap["message"] = ""
+		couponId64, _ := utils.StringToInt64(couponId)
+		var couponModels gormt.GbPayCoupon
+		err := databases.Mysql.Model(&couponModels).
+			Where("sys_trade_no=?", sysTradeNo).
+			UpdateColumns(gormt.GbPayCoupon{
+				Subject:   openid,
+				CouponID:  couponId64,
+				Status:    STATUS_USED,
+				UpdatedAt: utils.DateUnix(),
+			}).
+			Error
+		if err != nil {
+			logs.Info("发券保存错误", utils.GetErrorMsg(err))
+		}
+
+		return nil, resMap
+
+	} else {
+		resMap["coupon_id"] = ""
+		code := utils.MapValue(resMap, "code")
+		message := utils.MapValue(resMap, "message")
+		logs.Info("发券失败：stockId：" + stockId + ",错误：" + code + "|" + message)
+
+		var couponModels gormt.GbPayCoupon
+		err := databases.Mysql.Model(&couponModels).
+			Where("sys_trade_no=?", sysTradeNo).
+			UpdateColumns(gormt.GbPayCoupon{
+				Subject:   openid,
+				ErrMsg:    code + "|" + message,
+				UpdatedAt: utils.DateUnix(),
+			}).
+			Error
+		if err != nil {
+			logs.Info("发券失败保存错误", utils.GetErrorMsg(err))
+		}
+		return errors.New(message), resMap
+	}
+}
+
+//标准发放代金券
+func CouponSend(ctx *gin.Context, formStruct payment.WeixinReqStruct, sysTradeNo string, providerModel *gormt.GbPayProvider) {
+	err, resMap := coupons(ctx, formStruct, sysTradeNo, providerModel)
+	if err == nil {
+		utils.ResJSON(ctx, "0", resMap, "发送成功")
+	} else {
+		utils.ResJSON(ctx, "18_01_1_10000", resMap, "发券失败")
+	}
+	return
+	/*
+		openid := formStruct.BizContent.Openid
+		stockId := formStruct.BizContent.StockId
+
+		//数据验证
+		fromStruct := validators.CouponSendForm{
+			StockId:     stockId,
+			Openid:  openid,
+			OutTradeNo: formStruct.OutTradeNo,
+		}
+
+		if validators.Valid(ctx, fromStruct) == false {
+			return
+		}
+
+		urlApi := "https://api.mch.weixin.qq.com/v3/marketing/favor/users/"+ openid +"/coupons"
+
+		reqMap := make(map[string]interface{})
+		reqMap["appid"] = providerModel.AppID
+		//reqMap["openid"] = openid
+		reqMap["stock_id"] = stockId
+		reqMap["out_request_no"] = formStruct.OutTradeNo
+		reqMap["stock_creator_mchid"] = providerModel.MchID
+		reqJson := utils.Map2Json(reqMap)
+
+		resJsons := V3Request(providerModel.MchID, urlApi,"POST",string(reqJson))
+		logs.Info("发券couponSend:reqJson:",reqJson,"resJsons",resJsons)
+
+		resMap := utils.Json2map(resJsons)
+		couponId := utils.MapValue(resMap,"coupon_id")
+		if couponId != "" {
+			resMap["code"] = ""
+			resMap["message"] = ""
+			couponId64,_ := utils.StringToInt64(couponId)
+			var couponModels gormt.GbPayCoupon
+			err := databases.Mysql.Model(&couponModels).
+				Where("sys_trade_no=?", sysTradeNo).
+				UpdateColumns(gormt.GbPayCoupon{
+					CouponID: couponId64,
+					Status: STATUS_USED,
+					UpdatedAt: utils.DateUnix(),
+				}).
+				Error
+			if err != nil {
+				logs.Info("发券保存错误", utils.GetErrorMsg(err))
+			}
+
+			utils.ResJSON(ctx,"0",resMap,"发送成功")
+			return
+
+		}else{
+			resMap["coupon_id"] = ""
+			code := utils.MapValue(resMap,"code")
+			message := utils.MapValue(resMap,"message")
+			logs.Info("发券失败：stockId："+stockId + ",错误：" + code +"|"+ message)
+
+			var couponModels gormt.GbPayCoupon
+			err := databases.Mysql.Model(&couponModels).
+				Where("sys_trade_no=?", sysTradeNo).
+				UpdateColumns(gormt.GbPayCoupon{
+					ErrMsg: code +"|"+ message,
+					UpdatedAt: utils.DateUnix(),
+				}).
+				Error
+			if err != nil {
+				logs.Info("发券失败保存错误", utils.GetErrorMsg(err))
+			}
+			utils.ResJSON(ctx,"18_01_1_10000",resMap,"发券失败")
+			return
+		}
+	*/
+}
+
+//标准发放代金券
+func CouponLinkSend(ctx *gin.Context, formStruct payment.WeixinReqStruct, sysTradeNo string, providerModel *gormt.GbPayProvider) {
+	isSuccess := 0
+	err, resMap := coupons(ctx, formStruct, sysTradeNo, providerModel)
+	if err == nil {
+		isSuccess = 1
+	}
+	//	returnUrl := notify_services.CouponReturn(sysTradeNo,isSuccess)
+	returnUrl := notify_services.SrvNotifyCoupon.Return(sysTradeNo, isSuccess)
+	logs.Info("外链发券成功,订单号：", sysTradeNo, "数据", utils.Map2Json(resMap), "同步链接：", returnUrl)
+	if returnUrl != "" {
+		ctx.Redirect(302, returnUrl)
+		return
+	}
+	if err == nil {
+		utils.ResJSON(ctx, "0", resMap, "发送成功")
+	} else {
+		utils.ResJSON(ctx, "18_01_1_10000", resMap, "发券失败")
+	}
+}
+
+//查询代金券详情
+
+func CouponQueryInfo(ctx *gin.Context, formStruct payment.WeixinReqStruct, sysTradeNo string, providerModel *gormt.GbPayProvider) {
+	type CouponInfoStruct struct {
+		Code                    string `json:"code"`
+		Message                 string `json:"message"`
+		AvailableBeginTime      string `json:"available_begin_time"`
+		AvailableEndTime        string `json:"available_end_time"`
+		CouponID                string `json:"coupon_id"`
+		CouponName              string `json:"coupon_name"`
+		CouponType              string `json:"coupon_type"`
+		CreateTime              string `json:"create_time"`
+		Description             string `json:"description"`
+		NoCash                  bool   `json:"no_cash"`
+		NormalCouponInformation struct {
+			CouponAmount       int64 `json:"coupon_amount"`
+			TransactionMinimum int64 `json:"transaction_minimum"`
+		} `json:"normal_coupon_information"`
+		Singleitem        bool   `json:"singleitem"`
+		Status            string `json:"status"`
+		StockCreatorMchid string `json:"stock_creator_mchid"`
+		StockID           string `json:"stock_id"`
+	}
+
+	openid := formStruct.BizContent.Openid
+	couponId := formStruct.BizContent.CouponId
+	//数据验证
+	fromStruct := validators.CouponQueryInfoForm{
+		CouponId:   couponId,
+		Openid:     openid,
+		OutTradeNo: formStruct.OutTradeNo,
+	}
+
+	if validators.Valid(ctx, fromStruct) == false {
+		return
+	}
+	appId := providerModel.AppID
+
+	urlApi := "https://api.mch.weixin.qq.com/v3/marketing/favor/users/" + openid + "/coupons/" + couponId + "?appid=" + appId
+
+	resJsons := V3Request(providerModel.MchID, urlApi, "GET", "")
+	logs.Info("查询代金券结果CouponQueryInfo", resJsons)
+	var couponInfoStruct CouponInfoStruct
+	json.Unmarshal([]byte(resJsons), &couponInfoStruct)
+
+	if couponInfoStruct.Code != "" {
+		utils.ResJSON(ctx, utils.RescouponInfoErr, nil, couponInfoStruct.Message)
+		return
+	}
+	utils.ResJSON(ctx, "0", couponInfoStruct, "查询成功")
+	return
+
+}
+
+//查询代金券批次信息
+func CouponQueryBatchInfo(ctx *gin.Context, formStruct payment.WeixinReqStruct, providerModel *gormt.GbPayProvider) string {
+	type CouponStockInfoStruct struct {
+		Code               string `json:"code"`
+		Message            string `json:"message"`
+		AvailableBeginTime string `json:"available_begin_time"`
+		AvailableEndTime   string `json:"available_end_time"`
+		CardID             string `json:"card_id"`
+		CreateTime         string `json:"create_time"`
+		Description        string `json:"description"`
+		DistributedCoupons int64  `json:"distributed_coupons"`
+		NoCash             bool   `json:"no_cash"`
+		Singleitem         bool   `json:"singleitem"`
+		Status             string `json:"status"`
+		StockCreatorMchid  string `json:"stock_creator_mchid"`
+		StockID            string `json:"stock_id"`
+		StockName          string `json:"stock_name"`
+		StockType          string `json:"stock_type"`
+		StockUseRule       struct {
+			CombineUse        bool   `json:"combine_use"`
+			CouponType        string `json:"coupon_type"`
+			FixedNormalCoupon struct {
+				CouponAmount       int64 `json:"coupon_amount"`
+				TransactionMinimum int64 `json:"transaction_minimum"`
+			} `json:"fixed_normal_coupon"`
+			GoodsTag          []interface{} `json:"goods_tag"`
+			MaxAmount         int64         `json:"max_amount"`
+			MaxAmountByDay    int64         `json:"max_amount_by_day"`
+			MaxCoupons        int64         `json:"max_coupons"`
+			MaxCouponsPerUser int64         `json:"max_coupons_per_user"`
+			TradeType         []interface{} `json:"trade_type"`
+		} `json:"stock_use_rule"`
+	}
+
+	stockId := formStruct.BizContent.StockId
+	stockCreatorMchid := providerModel.MchID
+	//数据验证
+	fromStruct := validators.CouponQueryBatchInfoForm{
+		StockId:           stockId,
+		StockCreatorMchid: stockCreatorMchid,
+	}
+
+	if validators.Valid(ctx, fromStruct) == false {
+		return ""
+	}
+	urlApi := "https://api.mch.weixin.qq.com/v3/marketing/favor/stocks/" + stockId + "?stock_creator_mchid=" + stockCreatorMchid
+
+	resJsons := V3Request(providerModel.MchID, urlApi, "GET", "")
+	logs.Info("CouponQueryBatchInfo查询代金券批次结果", resJsons)
+
+	var couponStockInfoStruct CouponStockInfoStruct
+	json.Unmarshal([]byte(resJsons), &couponStockInfoStruct)
+	if couponStockInfoStruct.Code != "" {
+		utils.ResJSON(ctx, utils.RescouponBatchInfoErr, nil, couponStockInfoStruct.Message)
+		return ""
+	}
+	utils.ResJSON(ctx, "0", couponStockInfoStruct, "查询成功")
+	return resJsons
+
+}
+
+//条件查询批次列表API
+func CouponQueryStockList(ctx *gin.Context, formStruct payment.WeixinReqStruct, providerModel *gormt.GbPayProvider) string {
+
+	type StockListStruct struct {
+		Data []struct {
+			AvailableBeginTime string `json:"available_begin_time"`
+			AvailableEndTime   string `json:"available_end_time"`
+			CardID             string `json:"card_id"`
+			CreateTime         string `json:"create_time"`
+			Description        string `json:"description"`
+			DistributedCoupons int64  `json:"distributed_coupons"`
+			NoCash             bool   `json:"no_cash"`
+			Singleitem         bool   `json:"singleitem"`
+			Status             string `json:"status"`
+			StockCreatorMchid  string `json:"stock_creator_mchid"`
+			StockID            string `json:"stock_id"`
+			StockName          string `json:"stock_name"`
+			StockType          string `json:"stock_type"`
+			StockUseRule       struct {
+				CombineUse        bool   `json:"combine_use"`
+				CouponType        string `json:"coupon_type"`
+				FixedNormalCoupon struct {
+					CouponAmount       int64 `json:"coupon_amount"`
+					TransactionMinimum int64 `json:"transaction_minimum"`
+				} `json:"fixed_normal_coupon"`
+				GoodsTag          []interface{} `json:"goods_tag"`
+				MaxAmount         int64         `json:"max_amount"`
+				MaxAmountByDay    int64         `json:"max_amount_by_day"`
+				MaxCoupons        int64         `json:"max_coupons"`
+				MaxCouponsPerUser int64         `json:"max_coupons_per_user"`
+				TradeType         []interface{} `json:"trade_type"`
+			} `json:"stock_use_rule"`
+		} `json:"data"`
+		Limit      int64 `json:"limit"`
+		Offset     int64 `json:"offset"`
+		TotalCount int64 `json:"total_count"`
+	}
+
+	stockCreatorMchid := providerModel.MchID
+	//数据验证
+	fromStruct := validators.CouponQueryStockListForm{
+		StockCreatorMchid: stockCreatorMchid,
+		Offset:            utils.StringToInt(formStruct.BizContent.Page),
+		Limit:             utils.StringToInt(formStruct.BizContent.Limit),
+		CreateStartTime:   formStruct.BizContent.BeginTime,
+		CreateEndTime:     formStruct.BizContent.EndTime,
+		Status:            formStruct.BizContent.Status,
+	}
+
+	if validators.Valid(ctx, fromStruct) == false {
+		return ""
+	}
+
+	urlApi := fmt.Sprintf("https://api.mch.weixin.qq.com/v3/marketing/favor/stocks?stock_creator_mchid=%v&offset=%d&limit=%d", fromStruct.StockCreatorMchid, fromStruct.Offset, fromStruct.Limit)
+	if fromStruct.CreateEndTime != "" {
+		urlApi += fmt.Sprintf("&create_start_time=%v", fromStruct.CreateEndTime)
+	}
+	if fromStruct.CreateEndTime != "" {
+		urlApi += fmt.Sprintf("&create_end_time=%v", fromStruct.CreateEndTime)
+	}
+	if fromStruct.Status != "" {
+		urlApi += fmt.Sprintf("&status=%v", fromStruct.Status)
+	}
+
+	resJsons := V3Request(providerModel.MchID, urlApi, "GET", "")
+	logs.Info("查询代金券批次结果", resJsons, urlApi)
+	var stockListStruct StockListStruct
+	json.Unmarshal([]byte(resJsons), &stockListStruct)
+	utils.ResJSON(ctx, "0", stockListStruct, "查询成功")
+	return resJsons
+
+}
+
+//下载批次核销明细API
+func CouponUseFlow(ctx *gin.Context, formStruct payment.WeixinReqStruct, sysTradeNo string, providerModel *gormt.GbPayProvider) {
+
+	type UseFlowUrlStruct struct {
+		HashType  string `json:"hash_type"`
+		HashValue string `json:"hash_value"`
+		URL       string `json:"url"`
+		Code      string `json:"code"`
+		Message   string `json:"message"`
+	}
+	//数据结构体
+	type DataStruct struct {
+		StockId      string `json:"stock_id"`      //批次id
+		CouponId     string `json:"coupon_id"`     //优惠id
+		StockType    string `json:"stock_type"`    //优惠类型
+		CouponAmount string `json:"coupon_amount"` //优惠金额（元）
+		TotalAmount  string `json:"total_amount"`  //订单总金额（元）
+		TradeType    string `json:"trade_type"`    //交易类型
+		OutTradeNo   string `json:"out_trade_no"`  //支付单号
+		ConsumTime   string `json:"consum_time"`   //消耗时间
+		ConsumMchid  string `json:"consum_mchid"`  //消耗商户号
+		DevNo        string `json:"dev_no"`        //设备号
+		BankTradeNo  string `json:"bank_trade_no"` //银行流水号
+		GoodsDetail  string `json:"goods_detail"`  //单品信息
+	}
+	type ResDataStruct struct {
+		Count int          `json:"count"`
+		Data  []DataStruct `json:"data"`
+	}
+
+	stockId := formStruct.BizContent.StockId
+	//数据验证
+	fromStruct := validators.CouponUseFlowForm{
+		StockId: stockId,
+	}
+
+	if validators.Valid(ctx, fromStruct) == false {
+		return
+	}
+
+	urlApi := "https://api.mch.weixin.qq.com/v3/marketing/favor/stocks/" + fromStruct.StockId + "/use-flow"
+
+	resJsons := V3Request(providerModel.MchID, urlApi, "GET", "")
+	logs.Info("下载批次核销明细API结果CouponUseFlow1("+fromStruct.StockId+")", urlApi, resJsons)
+	//var couponInfoStruct CouponInfoStruct
+	//json.Unmarshal([]byte(resJsons),&couponInfoStruct)
+	var useFlowUrlStruct UseFlowUrlStruct
+	_ = json.Unmarshal([]byte(resJsons), &useFlowUrlStruct)
+	if useFlowUrlStruct.URL == "" {
+		utils.ResJSON(ctx, utils.ResCodeUseFlow, nil, useFlowUrlStruct.Message)
+		return
+	}
+
+	resJsons = V3Request(providerModel.MchID, useFlowUrlStruct.URL, "GET", "")
+	fmt.Println("下载批次核销明细API结果CouponUseFlow2("+fromStruct.StockId+"):", resJsons)
+
+	//struct slice
+	datas := []DataStruct{}
+	_ = csvreader.New().
+		WithHeader([]string{"stock_id", "coupon_id", "stock_type", "coupon_amount", "total_amount", "trade_type", "out_trade_no", "consum_time", "consum_mchid", "dev_no", "bank_trade_no", "goods_detail"}).
+		UnMarshalBytes([]byte(resJsons), &datas)
+
+	dataLen := 0
+	if len(datas) > 0 {
+		dataLen = len(datas) - 1
+	}
+
+	utils.ResJSON(ctx, "0", &ResDataStruct{
+		Count: dataLen,
+		Data:  datas,
+	}, "查询成功")
+	return
+
+}
+
+//下载批次退款明细API
+func CouponRefundFlow(ctx *gin.Context, formStruct payment.WeixinReqStruct, sysTradeNo string, providerModel *gormt.GbPayProvider) {
+	type RefundFlowUrlStruct struct {
+		HashType  string `json:"hash_type"`
+		HashValue string `json:"hash_value"`
+		URL       string `json:"url"`
+		Code      string `json:"code"`
+		Message   string `json:"message"`
+	}
+	//数据结构体
+	type DataStruct struct {
+		StockId      string `json:"stock_id"`      //批次id
+		CouponId     string `json:"coupon_id"`     //优惠id
+		StockType    string `json:"stock_type"`    //优惠类型
+		CouponAmount string `json:"coupon_amount"` //优惠金额（元）
+		TotalAmount  string `json:"total_amount"`  //订单总金额（元）
+		TradeType    string `json:"trade_type"`    //交易类型
+		OutTradeNo   string `json:"out_trade_no"`  //支付单号
+		ConsumTime   string `json:"consum_time"`   //消耗时间
+		ConsumMchid  string `json:"consum_mchid"`  //消耗商户号
+		DevNo        string `json:"dev_no"`        //设备号
+		BankTradeNo  string `json:"bank_trade_no"` //银行流水号
+		GoodsDetail  string `json:"goods_detail"`  //单品信息
+	}
+	type ResDataStruct struct {
+		Count int          `json:"count"`
+		Data  []DataStruct `json:"data"`
+	}
+
+	stockId := formStruct.BizContent.StockId
+	//数据验证
+	fromStruct := validators.CouponUseFlowForm{
+		StockId: stockId,
+	}
+
+	if validators.Valid(ctx, fromStruct) == false {
+		return
+	}
+
+	/*
+		可以查询核销订单的批次
+		10620663
+		10651788
+		10654831
+		10772583
+		10835269
+		10835269
+		10773049
+		15136352
+		15145035
+		15147817
+		15147791
+		15152713
+		15146783
+		15151857
+		15157572
+		15151934
+		15151877
+		15149511
+		15149417
+		15123835
+
+		退款可以用15149417
+	*/
+	urlApi := "https://api.mch.weixin.qq.com/v3/marketing/favor/stocks/" + fromStruct.StockId + "/refund-flow"
+
+	resJsons := V3Request(providerModel.MchID, urlApi, "GET", "")
+	logs.Info("下载批次退款明细API结果CouponRefundFlow1_"+fromStruct.StockId, resJsons, urlApi)
+
+	var refundFlowUrlStruct RefundFlowUrlStruct
+	_ = json.Unmarshal([]byte(resJsons), &refundFlowUrlStruct)
+	if refundFlowUrlStruct.URL == "" {
+		utils.ResJSON(ctx, utils.ResCodeUseFlow, nil, refundFlowUrlStruct.Message)
+		return
+	}
+
+	resJsons = V3Request(providerModel.MchID, refundFlowUrlStruct.URL, "GET", "")
+	fmt.Println("下载批次退款明细API结果CouponRefundFlow2_"+fromStruct.StockId+":", resJsons)
+
+	//struct slice
+	datas := []DataStruct{}
+	_ = csvreader.New().
+		WithHeader([]string{"stock_id", "coupon_id", "stock_type", "coupon_amount", "total_amount", "trade_type", "out_trade_no", "consum_time", "consum_mchid", "dev_no", "bank_trade_no", "goods_detail"}).
+		UnMarshalBytes([]byte(resJsons), &datas)
+	fmt.Println("AAAA", len(datas))
+
+	dataLen := 0
+	if len(datas) > 0 {
+		dataLen = len(datas) - 1
+	}
+
+	utils.ResJSON(ctx, "0", &ResDataStruct{
+		Count: dataLen,
+		Data:  datas,
+	}, "查询成功")
+	return
+
+}
