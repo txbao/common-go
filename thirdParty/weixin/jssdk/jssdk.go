@@ -1,7 +1,7 @@
 package jssdk
 
 import (
-	"common-go/common/utils"
+	"common-go/utils"
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"

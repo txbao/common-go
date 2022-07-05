@@ -1,7 +1,7 @@
 package common_go
 
 import (
-	"common-go/common/utils"
+	"common-go/utils"
 	"fmt"
 	"testing"
 )

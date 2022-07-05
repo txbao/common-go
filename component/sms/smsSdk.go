@@ -1,7 +1,7 @@
 package sms
 
 import (
-	"common-go/common/utils"
+	"common-go/utils"
 	"encoding/json"
 	"errors"
 	"fmt"

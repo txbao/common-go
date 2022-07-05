@@ -3,7 +3,7 @@ package lianlianlvyou
 //联联周边游
 
 import (
-	"common-go/common/utils"
+	"common-go/utils"
 	"bytes"
 	"crypto/aes"
 	"crypto/md5"

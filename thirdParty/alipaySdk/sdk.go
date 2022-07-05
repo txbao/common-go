@@ -1,8 +1,8 @@
 package alipaySdk
 
 import (
-	"common-go/common/thirdParty/alipaySdk/alipay"
-	"common-go/common/utils"
+	"common-go/thirdParty/alipaySdk/alipay"
+	"common-go/utils"
 	"context"
 	"fmt"
 	"github.com/go-pay/gopay"

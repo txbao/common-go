@@ -1,8 +1,8 @@
 package express
 
 import (
-	"common-go/common/utils"
-	"common-go/common/utils/logs"
+	"common-go/utils"
+	"common-go/utils/logs"
 	"fmt"
 	"time"
 )

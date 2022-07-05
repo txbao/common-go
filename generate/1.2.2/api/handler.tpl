@@ -3,8 +3,8 @@ package handler
 import (
 	"net/http"
 	"encoding/json"
-	"github.com/txbao/common-go/common/reponse"
-    "github.com/txbao/common-go/common/utils"
+	"github.com/txbao/common-go/reponse"
+    "github.com/txbao/common-go/utils"
     "fmt"
 
 	{{.ImportPackages}}

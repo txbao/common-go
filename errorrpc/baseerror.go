@@ -1,7 +1,7 @@
 package errorrpc
 
 import (
-	"common-go/common/proto"
+	"common-go/proto"
 	"context"
 	"encoding/json"
 	"fmt"

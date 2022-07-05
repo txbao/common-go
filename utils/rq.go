@@ -5,7 +5,7 @@ Rq前端传值处理
 txbao
 */
 import (
-	des2 "common-go/common/utils/des"
+	des2 "common-go/utils/des"
 	"encoding/json"
 	"fmt"
 	"log"

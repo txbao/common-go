@@ -1,7 +1,7 @@
 package holidays
 
 import (
-	"common-go/common/utils"
+	"common-go/utils"
 	"errors"
 	"time"
 )

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/txbao/common-go/common/utils"
-    "github.com/txbao/common-go/common/utils/logs"
+	"github.com/txbao/common-go/utils"
+    "github.com/txbao/common-go/utils/logs"
     "flag"
     "fmt"
     "context"

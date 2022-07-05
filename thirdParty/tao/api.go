@@ -1,7 +1,7 @@
 package tao
 
 import (
-	"common-go/common/utils"
+	"common-go/utils"
 	"encoding/json"
 	"fmt"
 	"github.com/go-errors/errors"

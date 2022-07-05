@@ -5,9 +5,9 @@ import (
 	"fmt"
 	_ "github.com/zeromicro/zero-contrib/zrpc/registry/nacos"
 	"github.com/zeromicro/go-zero/rest/httpx"
-	"github.com/txbao/common-go/common/utils"
-    "github.com/txbao/common-go/common/errorx"
-    "github.com/txbao/common-go/common/reponse"
+	"github.com/txbao/common-go/utils"
+    "github.com/txbao/common-go/errorx"
+    "github.com/txbao/common-go/reponse"
     "github.com/txbao/common-go/service/{{.serviceName}}/api/internal/middleware"
     "net/http"
 

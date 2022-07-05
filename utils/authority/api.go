@@ -1,8 +1,8 @@
 package authority
 
 import (
-	"common-go/common/utils"
-	"common-go/common/utils/des"
+	"common-go/utils"
+	"common-go/utils/des"
 	"encoding/json"
 	"fmt"
 	"strconv"

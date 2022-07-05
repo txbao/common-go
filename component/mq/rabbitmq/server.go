@@ -1,7 +1,7 @@
 package rabbitmq
 
 import (
-	"common-go/common/utils"
+	"common-go/utils"
 	"fmt"
 	"github.com/shopspring/decimal"
 	"github.com/streadway/amqp"

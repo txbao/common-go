@@ -1,8 +1,8 @@
 package payment
 
 import (
-	"common-go/common/utils"
-	"common-go/common/utils/logs"
+	"common-go/utils"
+	"common-go/utils/logs"
 	"bytes"
 	"encoding/json"
 	"fmt"

@@ -1,7 +1,7 @@
 package smapiSdk
 
 import (
-	"common-go/common/utils"
+	"common-go/utils"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"

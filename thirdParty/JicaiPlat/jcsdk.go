@@ -2,8 +2,8 @@ package JicaiPlat
 
 import (
 	"bytes"
-	"common-go/common/errorx"
-	"common-go/common/utils"
+	"common-go/errorx"
+	"common-go/utils"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"

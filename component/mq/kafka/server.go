@@ -1,7 +1,7 @@
 package kafka
 
 import (
-	"common-go/common/utils/logs"
+	"common-go/utils/logs"
 	"context"
 	"github.com/aws/aws-sdk-go/service/kafka"
 	"github.com/segmentio/kafka-go"

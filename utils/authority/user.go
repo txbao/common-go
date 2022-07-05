@@ -1,7 +1,7 @@
 package authority
 
 import (
-	"common-go/common/utils"
+	"common-go/utils"
 	"encoding/json"
 	"github.com/zeromicro/go-zero/core/stores/redis"
 )

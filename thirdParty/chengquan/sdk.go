@@ -1,7 +1,7 @@
 package chengquan
 
 import (
-	"common-go/common/utils"
+	"common-go/utils"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"

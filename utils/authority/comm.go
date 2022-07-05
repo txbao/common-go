@@ -1,7 +1,7 @@
 package authority
 
 import (
-	"common-go/common/utils"
+	"common-go/utils"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"

@@ -1,7 +1,7 @@
 package quanyi
 
 import (
-	"common-go/common/utils"
+	"common-go/utils"
 	"encoding/json"
 	"fmt"
 	"log"

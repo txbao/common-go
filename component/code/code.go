@@ -1,7 +1,7 @@
 package code
 
 import (
-	"common-go/common/utils"
+	"common-go/utils"
 	"errors"
 	"fmt"
 	"math"

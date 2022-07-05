@@ -1,7 +1,7 @@
 package coupon
 
 import (
-	"common-go/common/utils"
+	"common-go/utils"
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/json"

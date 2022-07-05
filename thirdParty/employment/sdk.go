@@ -3,7 +3,7 @@ package employment
 //灵活用工
 
 import (
-	"common-go/common/utils"
+	"common-go/utils"
 	"bytes"
 	"fmt"
 	"net/url"

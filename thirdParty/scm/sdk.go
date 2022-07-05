@@ -1,7 +1,7 @@
 package scm
 
 import (
-	"common-go/common/utils"
+	"common-go/utils"
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"

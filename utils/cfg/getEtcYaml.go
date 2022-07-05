@@ -1,7 +1,7 @@
 package cfg
 
 import (
-	"common-go/common/utils"
+	"common-go/utils"
 	"fmt"
 	"os"
 )

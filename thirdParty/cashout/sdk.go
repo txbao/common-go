@@ -1,7 +1,7 @@
 package cashout
 
 import (
-	"common-go/common/utils"
+	"common-go/utils"
 	"bytes"
 	"encoding/json"
 	"fmt"

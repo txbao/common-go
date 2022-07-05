@@ -1,7 +1,7 @@
 package apiSdk
 
 import (
-	"common-go/common/utils"
+	"common-go/utils"
 	"bytes"
 	"encoding/json"
 	"fmt"

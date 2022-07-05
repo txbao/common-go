@@ -3,9 +3,9 @@ package {{.PkgName}}
 import (
 	"net/http"
 	"encoding/json"
-	"github.com/txbao/common-go/common/utils/validators"
-	"github.com/txbao/common-go/common/reponse"
-	"github.com/txbao/common-go/common/utils"
+	"github.com/txbao/common-go/utils/validators"
+	"github.com/txbao/common-go/reponse"
+	"github.com/txbao/common-go/utils"
 
     "github.com/zeromicro/go-zero/rest/httpx"
 	/*{{if .After1_1_10}}"github.com/zeromicro/go-zero/rest/httpx"{{end}}*/
