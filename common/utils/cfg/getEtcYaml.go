@@ -1,7 +1,7 @@
 package cfg
 
 import (
-	"common-go/common/utils"
+	"github.com/txbao/common-go/common/utils"
 	"fmt"
 	"os"
 )

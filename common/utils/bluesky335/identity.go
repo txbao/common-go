@@ -1,9 +1,9 @@
 package bluesky335
 
 import (
-	"common-go/common/utils/bluesky335/IDCheck"
-	"common-go/common/utils/bluesky335/IdNumber"
 	"errors"
+	"github.com/txbao/common-go/common/utils/bluesky335/IDCheck"
+	"github.com/txbao/common-go/common/utils/bluesky335/IdNumber"
 	"strconv"
 	"time"
 )

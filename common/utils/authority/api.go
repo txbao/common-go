@@ -1,8 +1,8 @@
 package authority
 
 import (
-	"common-go/common/utils"
-	"common-go/common/utils/des"
+	"github.com/txbao/common-go/common/utils"
+	"github.com/txbao/common-go/common/utils/des"
 	"encoding/json"
 	"fmt"
 	"strconv"

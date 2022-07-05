@@ -1,7 +1,7 @@
 package code
 
 import (
-	"common-go/common/utils"
+	"github.com/txbao/common-go/common/utils"
 	"errors"
 	"fmt"
 	"math"

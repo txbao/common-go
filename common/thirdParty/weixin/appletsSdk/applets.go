@@ -1,8 +1,8 @@
 package appletsSdk
 
 import (
-	"common-go/common/utils"
-	"common-go/common/utils/logs"
+	"github.com/txbao/common-go/common/utils"
+	"github.com/txbao/common-go/common/utils/logs"
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/json"

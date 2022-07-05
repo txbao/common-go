@@ -1,6 +1,6 @@
 package mq
 
-import "common-go/common/component/mq/rabbitmq"
+import "github.com/txbao/common-go/common/component/mq/rabbitmq"
 
 // MQService mq 服务,目前暂定 kafka, 包含 send 和 read 两个方法
 type MQService struct {

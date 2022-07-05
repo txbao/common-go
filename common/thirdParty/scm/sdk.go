@@ -2,7 +2,7 @@ package scm
 
 import (
 	"bytes"
-	"common-go/common/utils"
+	"github.com/txbao/common-go/common/utils"
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/base64"

@@ -1,8 +1,8 @@
 package coupon
 
 import (
-	"common-go/common/utils"
-	"common-go/common/utils/logs"
+	"github.com/txbao/common-go/common/utils"
+	"github.com/txbao/common-go/common/utils/logs"
 	"crypto"
 	"crypto/aes"
 	"crypto/cipher"

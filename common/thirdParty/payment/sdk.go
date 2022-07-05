@@ -2,8 +2,8 @@ package payment
 
 import (
 	"bytes"
-	"common-go/common/utils"
-	"common-go/common/utils/logs"
+	"github.com/txbao/common-go/common/utils"
+	"github.com/txbao/common-go/common/utils/logs"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"

@@ -1,7 +1,7 @@
 package qrcode
 
 import (
-	"common-go/common/utils"
+	"github.com/txbao/common-go/common/utils"
 	"fmt"
 	"github.com/skip2/go-qrcode"
 	"image/color"

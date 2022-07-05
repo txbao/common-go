@@ -1,4 +1,4 @@
-module common-go
+module github.com/txbao/common-go
 
 go 1.17
 

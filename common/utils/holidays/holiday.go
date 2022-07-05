@@ -1,7 +1,7 @@
 package holidays
 
 import (
-	"common-go/common/utils"
+	"github.com/txbao/common-go/common/utils"
 	"errors"
 	"time"
 )

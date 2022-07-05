@@ -4,7 +4,7 @@ package lianlianlvyou
 
 import (
 	"bytes"
-	"common-go/common/utils"
+	"github.com/txbao/common-go/common/utils"
 	"crypto/aes"
 	"crypto/md5"
 	"encoding/base64"
